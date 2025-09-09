@@ -1,0 +1,43 @@
+import geopandas as gpd
+import folium
+
+# Load the GeoJSON file
+nebraska_geojson = "/Users/tirnapurkait/Downloads/Geocoding Folder/ne_nebraska_zip_codes_geo.min.json"
+gdf = gpd.read_file(nebraska_geojson)
+
+import pandas as pd
+
+# Load data from Excel
+df = "/Users/tirnapurkait/Downloads/Geocoding Folder/ZIP and food security raw geocode.xlsx"
+data_df = pd.read_excel(df)
+geo_df = gpd.read_file("/Users/tirnapurkait/Downloads/Geocoding Folder/ne_nebraska_zip_codes_geo.min.json")
+
+# Convert the Zipcode column to string data type in both DataFrames
+data_df['Zipcode'] = data_df['Zipcode'].astype(str)
+geo_df['ZCTA5CE10'] = geo_df['ZCTA5CE10'].astype(str)
+
+# Merge the DataFrames on the Zipcode column
+merged_df = data_df.merge(geo_df, left_on='Zipcode', right_on='ZCTA5CE10', how='left')
+
+# Check for valid and non-empty geometries
+valid_geometries = []
+for geometry in geo_df['geometry']:
+    if geometry.is_valid and not geometry.is_empty:
+        valid_geometries.append(geometry)
+
+# Create a new GeoDataFrame with valid geometries
+valid_geo_df = geo_df.loc[geo_df['geometry'].isin(valid_geometries)]
+
+# Create the map
+m = folium.Map(location=[41.500819, -99.901810], zoom_start=6)
+folium.Choropleth(
+    geo_data=valid_geo_df,
+    data=merged_df,
+    columns=["ZCTA5CE10", "FSS"],
+    key_on="feature.properties.ZCTA5CE10",
+    fill_color="YlGnBu",
+    fill_opacity=0.7,
+    line_opacity=0.2,
+    legend_name="Food Security Score (FSS)"
+).add_to(m)
+m.save("choroplethFSS_map.html")
